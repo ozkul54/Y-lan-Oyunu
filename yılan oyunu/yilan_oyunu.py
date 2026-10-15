@@ -58,19 +58,26 @@ BONUS_FOOD_POINTS = 5
 BONUS_FOOD_CHANCE = 0.25
 SCORE_TABLE_TEXT = (
     "PUAN / YEM\n"
-    "             Yavaş Normal Hızlı\n"
-    "Küçük           1      2      3\n"
-    "Orta            2      3      4\n"
-    "Büyük           3      4      5"
+    "            Yavaş Normal Hızlı\n"
+    "Küçük          1      2      3\n"
+    "Orta           2      3      4\n"
+    "Büyük          3      4      5"
 )
-RECORD_FILE = Path(__file__).with_name("yilan_rekor.json")
-SETTINGS_FILE = Path(__file__).with_name("yilan_ayarlar.json")
+
+# Taşınabilir (Portable) Disk / .exe Çalışma Yolu Desteği
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys.executable).parent
+else:
+    BASE_DIR = Path(__file__).parent
+
+RECORD_FILE = BASE_DIR / "yilan_rekor.json"
+SETTINGS_FILE = BASE_DIR / "yilan_ayarlar.json"
 
 
 class SnakeGame:
     def __init__(self, root):
         self.root = root
-        self.root.title("Yılan Oyunu")
+        self.root.title("Yılan Oyunu - Taşınabilir Sürüm")
         self.root.resizable(False, False)
 
         self.game_started = False
@@ -92,12 +99,13 @@ class SnakeGame:
         self.tick_delay = SPEED_OPTIONS[self.speed_var.get()]
         self.points_per_food = 20
         self.root.configure(bg=BG)
+        
         self.start_screen = tk.Frame(root, bg=BG, padx=44, pady=34)
         self.start_screen.pack(expand=True)
 
         tk.Label(
             self.start_screen,
-            text="SNAKE  /  01",
+            text="SNAKE  /  PORTABLE",
             fg=OVER,
             bg=BG,
             font=("Arial", 10, "bold"),
@@ -554,29 +562,33 @@ class SnakeGame:
 
     def load_settings(self):
         try:
-            with SETTINGS_FILE.open("r", encoding="utf-8") as settings_file:
-                settings = json.load(settings_file)
-            if not isinstance(settings, dict):
-                return
-            theme_name = settings.get("theme")
-            if theme_name in GRAPHIC_THEMES:
-                self.theme_name = theme_name
-            self.show_grid = bool(settings.get("show_grid", True))
+            if SETTINGS_FILE.exists():
+                with SETTINGS_FILE.open("r", encoding="utf-8") as settings_file:
+                    settings = json.load(settings_file)
+                if not isinstance(settings, dict):
+                    return
+                theme_name = settings.get("theme")
+                if theme_name in GRAPHIC_THEMES:
+                    self.theme_name = theme_name
+                self.show_grid = bool(settings.get("show_grid", True))
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             pass
 
     def save_settings(self):
-        with SETTINGS_FILE.open("w", encoding="utf-8") as settings_file:
-            json.dump(
-                {
-                    "theme": self.theme_name,
-                    "show_grid": self.show_grid,
-                    "short_path_enabled": self.short_path_enabled,
-                },
-                settings_file,
-                ensure_ascii=False,
-                indent=2,
-            )
+        try:
+            with SETTINGS_FILE.open("w", encoding="utf-8") as settings_file:
+                json.dump(
+                    {
+                        "theme": self.theme_name,
+                        "show_grid": self.show_grid,
+                        "short_path_enabled": self.short_path_enabled,
+                    },
+                    settings_file,
+                    ensure_ascii=False,
+                    indent=2,
+                )
+        except OSError:
+            pass
 
     def change_theme(self):
         self.theme_name = self.theme_var.get()
@@ -650,14 +662,19 @@ class SnakeGame:
 
     def load_best_score(self):
         try:
-            with RECORD_FILE.open("r", encoding="utf-8") as record_file:
-                return max(0, int(json.load(record_file).get("best_score", 0)))
+            if RECORD_FILE.exists():
+                with RECORD_FILE.open("r", encoding="utf-8") as record_file:
+                    return max(0, int(json.load(record_file).get("best_score", 0)))
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
-            return 0
+            pass
+        return 0
 
     def save_best_score(self):
-        with RECORD_FILE.open("w", encoding="utf-8") as record_file:
-            json.dump({"best_score": self.best_score}, record_file)
+        try:
+            with RECORD_FILE.open("w", encoding="utf-8") as record_file:
+                json.dump({"best_score": self.best_score}, record_file)
+        except OSError:
+            pass
 
     def spawn_food(self, forbidden=()):
         while True:
@@ -760,7 +777,10 @@ class SnakeGame:
         volume_factor = max(0.35, self.sound_volume)
         frequency = int(700 * (0.7 + volume_factor))
         duration = max(35, int(80 * volume_factor))
-        winsound.Beep(frequency, duration)
+        try:
+            winsound.Beep(frequency, duration)
+        except RuntimeError:
+            pass
 
     def tick(self):
         self.tick_after_id = None
@@ -922,7 +942,6 @@ class SnakeGame:
             self.canvas.create_text(self.width / 2, self.height / 2 + 20, text="Enter veya Space ile yeniden başla", fill=TEXT, font=("Arial", 11))
 
 
-
 def main():
     root = tk.Tk()
     SnakeGame(root)
@@ -931,3 +950,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
